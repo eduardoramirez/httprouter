@@ -69,6 +69,59 @@ func TestRouter(t *testing.T) {
 	}
 }
 
+func TestRouterCatchAllParam(t *testing.T) {
+	router := New()
+
+	routed := false
+	router.HandlerFunc(http.MethodGet, "/user/:name/*", func(w http.ResponseWriter, r *http.Request) {
+		routed = true
+		catchAllWant := "are/so/cool"
+		ps := ParamsFromContext(r.Context())
+		if ps.CatchAll() != catchAllWant {
+			t.Fatalf("wrong wildcard values: want %v, got %v", catchAllWant, ps)
+		}
+		want := Params{Param{"name", "gopher"}, Param{"$catchAllParam", "are/so/cool"}}
+		if !reflect.DeepEqual(ps, want) {
+			t.Fatalf("wrong wildcard values: want %v, got %v", want, ps)
+		}
+	})
+
+	w := new(mockResponseWriter)
+
+	req, _ := http.NewRequest(http.MethodGet, "/user/gopher/are/so/cool", nil)
+	router.ServeHTTP(w, req)
+
+	if !routed {
+		t.Fatal("routing failed")
+	}
+}
+
+func TestRouterCatchAllParamNamed(t *testing.T) {
+	router := New()
+
+	routed := false
+	router.HandlerFunc(http.MethodGet, "/user/:name/*rest", func(w http.ResponseWriter, r *http.Request) {
+		routed = true
+		ps := ParamsFromContext(r.Context())
+		if ps.CatchAll() != "" {
+			t.Fatal("expected catch all helper param to be unset")
+		}
+		want := Params{Param{"name", "gopher"}, Param{"rest", "are/so/cool"}}
+		if !reflect.DeepEqual(ps, want) {
+			t.Fatalf("wrong wildcard values: want %v, got %v", want, ps)
+		}
+	})
+
+	w := new(mockResponseWriter)
+
+	req, _ := http.NewRequest(http.MethodGet, "/user/gopher/are/so/cool", nil)
+	router.ServeHTTP(w, req)
+
+	if !routed {
+		t.Fatal("routing failed")
+	}
+}
+
 type handlerStruct struct {
 	handled *bool
 }

@@ -381,7 +381,7 @@ func TestTreeEmptyWildcardName(t *testing.T) {
 		"/user:",
 		"/user:/",
 		"/cmd/:/",
-		"/src/*",
+		"/cmd/:/:",
 	}
 	for _, route := range routes {
 		recv := catchPanic(func() {
@@ -389,6 +389,22 @@ func TestTreeEmptyWildcardName(t *testing.T) {
 		})
 		if recv == nil {
 			t.Fatalf("no panic while inserting route with empty wildcard name '%s", route)
+		}
+	}
+}
+
+func TestTreeEmptyCatchAllWildcardName(t *testing.T) {
+	tree := &node{}
+
+	routes := [...]string{
+		"/user/*",
+	}
+	for _, route := range routes {
+		recv := catchPanic(func() {
+			tree.addRoute(route, nil)
+		})
+		if recv != nil {
+			t.Fatalf("panic while inserting route with empty catch all wildcard name '%s", route)
 		}
 	}
 }

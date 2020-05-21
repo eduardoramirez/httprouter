@@ -34,6 +34,14 @@ func (ps Params) ByName(name string) string {
 	return ""
 }
 
+var catchAllParam = "$catchAllParam"
+
+// CatchAll retrieves the remaining path matched by the catch all, if
+// the catch all was not named.
+func (ps Params) CatchAll() string {
+	return ps.ByName(catchAllParam)
+}
+
 type paramsKey struct{}
 
 // ParamsKey is the request context key under which URL params are stored.
@@ -246,7 +254,11 @@ func (r *Router) lookup(method, path string) (http.Handler, Params) {
 		if len(paramValues) > 0 {
 			params := make(Params, len(paramValues))
 			for i, name := range nodeFound.wildcardNames {
-				params[i] = Param{Key: name, Value: paramValues[i]}
+				if name == "*" {
+					params[i] = Param{Key: catchAllParam, Value: paramValues[i]}
+				} else {
+					params[i] = Param{Key: name, Value: paramValues[i]}
+				}
 			}
 			return nodeFound.handle, params
 		}

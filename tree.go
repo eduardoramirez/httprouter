@@ -352,7 +352,9 @@ func normalizePath(path string) (string, []string) {
 			}
 		}
 
-		if tokenEnd == start+1 {
+		wildcardName := path[start+1 : tokenEnd]
+
+		if c == ':' && wildcardName == "" {
 			panic("wildcards must be named with a non-empty name in path '" + originalPath + "'")
 		}
 
@@ -365,9 +367,11 @@ func normalizePath(path string) (string, []string) {
 				// * should be the last thing
 				panic("catch all must be the last segment in '" + originalPath + "'")
 			}
+			if wildcardName == "" {
+				wildcardName = "*"
+			}
 		}
 
-		wildcardName := path[start+1 : tokenEnd]
 		if wildcardNames == nil {
 			wildcardNames = []string{wildcardName}
 		} else {
