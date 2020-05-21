@@ -177,9 +177,11 @@ func (n *node) insertChild(fullpath string, path string, handle http.Handler, wi
 				path = path[i:]
 			}
 
-			n.wild = &node{
-				nType: param,
-				path:  ":",
+			if n.wild == nil {
+				n.wild = &node{
+					nType: param,
+					path:  ":",
+				}
 			}
 			n = n.wild
 			n.priority++

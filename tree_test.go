@@ -211,6 +211,48 @@ func TestTreeWildcard(t *testing.T) {
 	checkPriorities(t, tree)
 }
 
+func TestTreeWildcardWithinSegmentWithManyEntries(t *testing.T) {
+	tree := &node{}
+
+	routes := [...]string{
+		"/@:username/:postId/edit",
+		"/@:username/:postId",
+		"/@:username/collections/:catalogSlug",
+		"/@:username/collections",
+		"/@:username/collections/:catalogSlug/edit",
+		"/@:username/stats",
+		"/@:username/stats/responses",
+		"/@:username/stats/series",
+		"/@:username",
+		"/@:username/edit",
+		"/@:username/latest",
+		"/@:username/highlights",
+		"/@:username/series",
+		"/@:username/responses",
+		"/@:username/partner/dashboard",
+		"/@:username/publications",
+		"/@:username/recommended",
+		"/@:username/follow-list",
+		"/@:username/stats/total/:startTimeMs/:endTimeMs",
+		"/:collectionSlug/:postId",
+		"/:collectionSlug",
+	}
+	for _, route := range routes {
+		tree.addRoute(route, fakeHandler(route))
+	}
+
+	// printChildren(tree, "")
+
+	checkRequests(t, tree, testRequests{
+		{"/@eduardo", false, "/@:username", []string{"username"}, []string{"eduardo"}},
+		{"/@eduardo/someId", false, "/@:username/:postId", []string{"username", "postId"}, []string{"eduardo", "someId"}},
+		{"/eduardospub", false, "/:collectionSlug", []string{"collectionSlug"}, []string{"eduardospub"}},
+		{"/eduardospub/someId", false, "/:collectionSlug/:postId", []string{"collectionSlug", "postId"}, []string{"eduardospub", "someId"}},
+	})
+
+	checkPriorities(t, tree)
+}
+
 func catchPanic(testFunc func()) (recv interface{}) {
 	defer func() {
 		recv = recover()
