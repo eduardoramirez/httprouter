@@ -167,8 +167,8 @@ func (n *node) insertChild(fullpath string, path string, handle http.Handler, wi
 
 		if wildcard == ':' { // param
 			if n.wild != nil {
-				// TODO (eduardo): fill me
-				panic("wild node exists here")
+				existingPath := denormalizePath(fullpath, n.wildcardNames)
+				panic("cannot add ambigous path '" + fullpath + "', existing path '" + existingPath + "' already exists")
 			}
 
 			if i > 0 {
@@ -205,8 +205,8 @@ func (n *node) insertChild(fullpath string, path string, handle http.Handler, wi
 			if i != len(path)-1 {
 				panic("catch-all routes are only allowed at the end of the path in path '" + fullpath + "'")
 			} else if n.catchAll != nil {
-				// TODO (eduardo): fill me
-				panic("catch all node exists here")
+				existingPath := denormalizePath(fullpath, n.wildcardNames)
+				panic("cannot add ambigous path '" + fullpath + "', existing path '" + existingPath + "' already exists")
 			}
 
 			// we created space for an intermediate segment
@@ -323,6 +323,8 @@ func findNextWildcard(path string) (byte, int) {
 }
 
 func normalizePath(path string) (string, []string) {
+	originalPath := path
+
 	var wildcardNames []string
 	normalizedPath := strings.Builder{}
 
@@ -344,26 +346,22 @@ func normalizePath(path string) (string, []string) {
 				tokenEnd = start + 1 + end
 				break walk
 			case ':', '*':
-				panic("only one wildcard per path segment is allowed")
+				panic("only one wildcard per path segment is allowed in path '" + originalPath + "'")
 			}
 		}
 
 		if tokenEnd == start+1 {
-			// TODO (eduardo): fill me
-			// wildcard does not have a name
-			panic("")
+			panic("wildcards must be named with a non-empty name in path '" + originalPath + "'")
 		}
 
 		if c == '*' {
 			// NOTE (eduardo): should we support '/topics/some*restofurl' ??
 			if start > 1 && chars[start-1] != '/' {
-				// TODO (eduardo): fill me
-				panic("")
+				panic("catch all may not appear within a segmemt in '" + originalPath + "'")
 			}
 			if tokenEnd != len(chars) {
 				// * should be the last thing
-				// TODO (eduardo): fill me
-				panic("")
+				panic("catch all must be the last segment in '" + originalPath + "'")
 			}
 		}
 
@@ -378,4 +376,20 @@ func normalizePath(path string) (string, []string) {
 	}
 
 	return normalizedPath.String(), wildcardNames
+}
+
+func denormalizePath(normalizedPath string, wildcardNames []string) string {
+	path := strings.Builder{}
+
+	i := 0
+	for _, c := range normalizedPath {
+		if c != ':' && c != '*' {
+			path.WriteRune(c)
+		} else {
+			path.WriteString(wildcardNames[i])
+			i++
+		}
+	}
+
+	return path.String()
 }

@@ -374,3 +374,15 @@ func TestTreeDoubleWildcard(t *testing.T) {
 		}
 	}
 }
+
+func TestTreeDenormalizePath(t *testing.T) {
+	p := denormalizePath("/:/hello/world/:", []string{"bar", "foo"})
+	if p != "/bar/hello/world/foo" {
+		t.Fatalf("Expected %s to be %s", p, "/bar/hello/world/foo")
+	}
+
+	p = denormalizePath("/:/hello/world/*", []string{"bar", "foo"})
+	if p != "/bar/hello/world/foo" {
+		t.Fatalf("Expected %s to be %s", p, "/bar/hello/world/foo")
+	}
+}
