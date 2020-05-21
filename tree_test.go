@@ -230,7 +230,7 @@ func testRoutes(t *testing.T, routes []testRoute) {
 
 	for _, route := range routes {
 		recv := catchPanic(func() {
-			tree.addRoute(route.path, nil)
+			tree.addRoute(route.path, fakeHandler(route.path))
 		})
 
 		if route.conflict {
@@ -242,7 +242,7 @@ func testRoutes(t *testing.T, routes []testRoute) {
 		}
 	}
 
-	//printChildren(tree, "")
+	// printChildren(tree, "")
 }
 
 func TestTreeWildcardConflict(t *testing.T) {
@@ -265,6 +265,14 @@ func TestTreeWildcardConflict(t *testing.T) {
 		{"/user_:name", true},
 		{"/id:id", false},
 		{"/id/:id", false},
+	}
+	testRoutes(t, routes)
+}
+
+func TestTreeWildcardNestedConflict(t *testing.T) {
+	routes := []testRoute{
+		{"/cmd/:tool/some/other/thing", false},
+		{"/cmd/:tool", false},
 	}
 	testRoutes(t, routes)
 }

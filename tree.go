@@ -166,8 +166,8 @@ func (n *node) insertChild(fullpath string, path string, handle http.Handler, wi
 		}
 
 		if wildcard == ':' { // param
-			if n.wild != nil {
-				existingPath := denormalizePath(fullpath, n.wildcardNames)
+			if n.wild != nil && n.wild.handle != nil {
+				existingPath := denormalizePath(fullpath, n.wild.wildcardNames)
 				panic("cannot add ambigous path '" + fullpath + "', existing path '" + existingPath + "' already exists")
 			}
 
@@ -204,8 +204,8 @@ func (n *node) insertChild(fullpath string, path string, handle http.Handler, wi
 		} else { // catchAll
 			if i != len(path)-1 {
 				panic("catch-all routes are only allowed at the end of the path in path '" + fullpath + "'")
-			} else if n.catchAll != nil {
-				existingPath := denormalizePath(fullpath, n.wildcardNames)
+			} else if n.catchAll != nil && n.catchAll.handle != nil {
+				existingPath := denormalizePath(fullpath, n.catchAll.wildcardNames)
 				panic("cannot add ambigous path '" + fullpath + "', existing path '" + existingPath + "' already exists")
 			}
 
