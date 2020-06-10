@@ -7,7 +7,6 @@
 package httprouter
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -461,7 +460,6 @@ func TestRouterNotAllowed(t *testing.T) {
 	}
 }
 
-// TODO (eduardo): revisit test if we decided to support TSR & path cleaning redirects
 func TestRouterNotFound(t *testing.T) {
 	handlerFunc := func(_ http.ResponseWriter, _ *http.Request) {}
 
@@ -475,22 +473,22 @@ func TestRouterNotFound(t *testing.T) {
 		code     int
 		location string
 	}{
-		// {"/path/", http.StatusMovedPermanently, "/path"},   // TSR -/
-		// {"/dir", http.StatusMovedPermanently, "/dir/"},     // TSR +/
-		// {"", http.StatusMovedPermanently, "/"},             // TSR +/
+		{"/path/", http.StatusOK, "/path"}, // TSR -/
+		{"/dir", http.StatusOK, "/dir/"},   // TSR +/
+		{"", http.StatusOK, "/"},           // TSR +/
 		// {"/PATH", http.StatusMovedPermanently, "/path"},    // Fixed Case
 		// {"/DIR/", http.StatusMovedPermanently, "/dir/"},    // Fixed Case
 		// {"/PATH/", http.StatusMovedPermanently, "/path"},   // Fixed Case -/
 		// {"/DIR", http.StatusMovedPermanently, "/dir/"},     // Fixed Case +/
-		// {"/../path", http.StatusMovedPermanently, "/path"}, // CleanPath
-		{"/nope", http.StatusNotFound, ""}, // NotFound
+		{"/../path", http.StatusOK, "/path"}, // CleanPath
+		{"/nope", http.StatusNotFound, ""},   // NotFound
 	}
 	for _, tr := range testRoutes {
 		r, _ := http.NewRequest(http.MethodGet, tr.route, nil)
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, r)
-		if !(w.Code == tr.code && (w.Code == http.StatusNotFound || fmt.Sprint(w.Header().Get("Location")) == tr.location)) {
-			t.Errorf("NotFound handling route %s failed: Code=%d, Header=%v", tr.route, w.Code, w.Header().Get("Location"))
+		if w.Code != tr.code {
+			t.Errorf("NotFound handling route '%s' failed: Code=%d", tr.route, w.Code)
 		}
 	}
 
@@ -507,24 +505,24 @@ func TestRouterNotFound(t *testing.T) {
 		t.Errorf("Custom NotFound handler failed: Code=%d, Header=%v", w.Code, w.Header())
 	}
 
-	// // Test other method than GET (want 308 instead of 301)
-	// router.PATCH("/path", handlerFunc)
-	// r, _ = http.NewRequest(http.MethodPatch, "/path/", nil)
-	// w = httptest.NewRecorder()
-	// router.ServeHTTP(w, r)
-	// if !(w.Code == http.StatusPermanentRedirect && fmt.Sprint(w.Header()) == "map[Location:[/path]]") {
-	// 	t.Errorf("Custom NotFound handler failed: Code=%d, Header=%v", w.Code, w.Header())
-	// }
+	// Test other method than GET (want 308 instead of 301)
+	router.PATCH("/path", handlerFunc)
+	r, _ = http.NewRequest(http.MethodPatch, "/path/", nil)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, r)
+	if w.Code != http.StatusOK {
+		t.Errorf("Custom NotFound handler failed: Code=%d, Header=%v", w.Code, w.Header())
+	}
 
-	// // Test special case where no node for the prefix "/" exists
-	// router = New()
-	// router.GET("/a", handlerFunc)
-	// r, _ = http.NewRequest(http.MethodGet, "/", nil)
-	// w = httptest.NewRecorder()
-	// router.ServeHTTP(w, r)
-	// if !(w.Code == http.StatusNotFound) {
-	// 	t.Errorf("NotFound handling route / failed: Code=%d", w.Code)
-	// }
+	// Test special case where no node for the prefix "/" exists
+	router = New()
+	router.GET("/a", handlerFunc)
+	r, _ = http.NewRequest(http.MethodGet, "/", nil)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, r)
+	if !(w.Code == http.StatusNotFound) {
+		t.Errorf("NotFound handling route / failed: Code=%d", w.Code)
+	}
 }
 
 func TestRouterPanicHandler(t *testing.T) {

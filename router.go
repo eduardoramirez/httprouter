@@ -97,6 +97,18 @@ type Router struct {
 	// The handler can be used to keep your server from crashing because of
 	// unrecovered panics.
 	PanicHandler func(http.ResponseWriter, *http.Request, interface{})
+
+	// If enabled, the router will fix the current request path before looking for a match.
+	// Superfluous path elements like ../ or // are removed. For example /foo/// and /..//foo/ could
+	// be handled as /foo.
+	// TryFixedTrailingSlash is independent of this option.
+	CleanPath bool
+
+	// If the current route can't be matched but a handler for the path with/without
+	// the trailing slash exists, the router will use that handler.
+	// For example if /foo/ is requested but a route only exists for /foo, the
+	// request will still be served.
+	TryFixedTrailingSlash bool
 }
 
 // Make sure the Router conforms with the http.Handler interface
@@ -107,6 +119,8 @@ func New() *Router {
 	return &Router{
 		HandleMethodNotAllowed: true,
 		HandleOPTIONS:          true,
+		CleanPath:              true,
+		TryFixedTrailingSlash:  true,
 	}
 }
 
@@ -274,20 +288,42 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		defer r.recv(w, req)
 	}
 
-	path := req.URL.Path
+	var path string
+	if r.CleanPath && req.URL.Path != "*" {
+		path = CleanPath(req.URL.Path)
+	} else {
+		path = req.URL.Path
+	}
 
 	if handle, params := r.lookup(req.Method, path); handle != nil {
+		req.URL.Path = path
 		if len(params) > 0 {
 			req = req.WithContext(
 				context.WithValue(req.Context(), ParamsKey, params),
 			)
 		}
 		handle.ServeHTTP(w, req)
-
 		return
 	} else if req.Method != http.MethodConnect && path != "/" {
-		// NOTE (eduardo): if we decide to implement TSR & path cleaning redirects
-		// this is where it'd go
+		if r.TryFixedTrailingSlash {
+			var fixedPath string
+			if len(path) > 1 && path[len(path)-1] == '/' {
+				fixedPath = path[:len(path)-1]
+			} else {
+				fixedPath = path + "/"
+			}
+
+			if handle, params := r.lookup(req.Method, fixedPath); handle != nil {
+				req.URL.Path = fixedPath
+				if len(params) > 0 {
+					req = req.WithContext(
+						context.WithValue(req.Context(), ParamsKey, params),
+					)
+				}
+				handle.ServeHTTP(w, req)
+				return
+			}
+		}
 	}
 
 	if req.Method == http.MethodOptions && r.HandleOPTIONS {
