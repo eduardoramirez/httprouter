@@ -470,8 +470,6 @@ func TestTreeWildcard_RecursesIntoPrefixIfEntirePrefixMatches(t *testing.T) {
 		tree.addRoute(route, fakeHandler(route))
 	}
 
-	// printChildren(tree, "")
-
 	checkRequests(t, tree, testRequests{
 		// could be confused with /fe... => /feed/:collectionSlug/tagged/:tagSlug
 		{"/fernando-henrique-cardoso/tempos-confusos-e416041e56c2", false, "/:collectionSlug/:postId", []string{"collectionSlug", "postId"}, []string{"fernando-henrique-cardoso", "tempos-confusos-e416041e56c2"}},
