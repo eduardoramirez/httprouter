@@ -253,7 +253,7 @@ func (n *node) search(path string) (*node, []string) {
 
 		nextChar := path[0]
 		for i, c := range []byte(n.indices) {
-			if c == nextChar {
+			if c == nextChar && strings.HasPrefix(path, n.literals[i].path) {
 				if found, params := n.literals[i].search(path); found != nil {
 					return found, params
 				}
