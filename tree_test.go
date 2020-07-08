@@ -475,7 +475,7 @@ func TestTreeWildcard_RecursesIntoPrefixIfEntirePrefixMatches(t *testing.T) {
 		{"/fernando-henrique-cardoso/tempos-confusos-e416041e56c2", false, "/:collectionSlug/:postId", []string{"collectionSlug", "postId"}, []string{"fernando-henrique-cardoso", "tempos-confusos-e416041e56c2"}},
 		// could be confused with /s/:collectionSlug/s... => /s/:sequenceSlug/share/:channel
 		{"/s/canarycuddles/sequence-test-33b695a20129", false, "/s/:sequenceSlug/:postId", []string{"sequenceSlug", "postId"}, []string{"canarycuddles", "sequence-test-33b695a20129"}},
-		{"/s/story/strategies-for-seizing-the-day-5a8be91a5346", false, "/:collectionSlug", []string{"collectionSlug"}, []string{"eduardospub"}},
+		{"/s/story/strategies-for-seizing-the-day-5a8be91a5346", false, "/s/:sequenceSlug/:postId", []string{"sequenceSlug", "postId"}, []string{"story", "strategies-for-seizing-the-day-5a8be91a5346"}},
 	})
 
 	checkPriorities(t, tree)
