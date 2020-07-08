@@ -452,3 +452,31 @@ func TestTreeDenormalizePath(t *testing.T) {
 		t.Fatalf("Expected %s to be %s", p, "/bar/hello/world/foo")
 	}
 }
+
+func TestTreeWildcard_RecursesIntoPrefixIfEntirePrefixMatches(t *testing.T) {
+	tree := &node{}
+
+	routes := [...]string{
+		"/feed/:collectionSlug/tagged/:tagSlug",
+		"/:collectionSlug/tagged/:tagSlug",
+		"/:collectionSlug",
+		"/:collectionSlug/:postId",
+		"/p/:postId",
+		"/s/:sequenceSlug/:postId",
+		"/s/:sequenceSlug/share/:channel",
+		"/s/:sequenceSlug",
+	}
+	for _, route := range routes {
+		tree.addRoute(route, fakeHandler(route))
+	}
+
+	checkRequests(t, tree, testRequests{
+		// could be confused with /fe... => /feed/:collectionSlug/tagged/:tagSlug
+		{"/fernando-henrique-cardoso/tempos-confusos-e416041e56c2", false, "/:collectionSlug/:postId", []string{"collectionSlug", "postId"}, []string{"fernando-henrique-cardoso", "tempos-confusos-e416041e56c2"}},
+		// could be confused with /s/:collectionSlug/s... => /s/:sequenceSlug/share/:channel
+		{"/s/canarycuddles/sequence-test-33b695a20129", false, "/s/:sequenceSlug/:postId", []string{"sequenceSlug", "postId"}, []string{"canarycuddles", "sequence-test-33b695a20129"}},
+		{"/s/story/strategies-for-seizing-the-day-5a8be91a5346", false, "/:collectionSlug", []string{"collectionSlug"}, []string{"eduardospub"}},
+	})
+
+	checkPriorities(t, tree)
+}
