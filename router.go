@@ -289,39 +289,45 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var path string
-	if r.CleanPath && req.URL.Path != "*" {
-		path = CleanPath(req.URL.Path)
+	if req.URL.RawPath != "" {
+		path = req.URL.RawPath
 	} else {
 		path = req.URL.Path
 	}
 
-	if handle, params := r.lookup(req.Method, path); handle != nil {
-		req.URL.Path = path
-		if len(params) > 0 {
-			req = req.WithContext(
-				context.WithValue(req.Context(), ParamsKey, params),
-			)
+	if req.URL.Path != "*" {
+		if r.CleanPath {
+			path = CleanPath(path)
 		}
-		handle.ServeHTTP(w, req)
-		return
-	} else if req.Method != http.MethodConnect && path != "/" {
-		if r.TryFixedTrailingSlash {
-			var fixedPath string
-			if len(path) > 1 && path[len(path)-1] == '/' {
-				fixedPath = path[:len(path)-1]
-			} else {
-				fixedPath = path + "/"
-			}
 
-			if handle, params := r.lookup(req.Method, fixedPath); handle != nil {
-				req.URL.Path = fixedPath
-				if len(params) > 0 {
-					req = req.WithContext(
-						context.WithValue(req.Context(), ParamsKey, params),
-					)
+		if handle, params := r.lookup(req.Method, path); handle != nil {
+			req.URL.Path = path
+			if len(params) > 0 {
+				req = req.WithContext(
+					context.WithValue(req.Context(), ParamsKey, params),
+				)
+			}
+			handle.ServeHTTP(w, req)
+			return
+		} else if req.Method != http.MethodConnect && path != "/" {
+			if r.TryFixedTrailingSlash {
+				var fixedPath string
+				if len(path) > 1 && path[len(path)-1] == '/' {
+					fixedPath = path[:len(path)-1]
+				} else {
+					fixedPath = path + "/"
 				}
-				handle.ServeHTTP(w, req)
-				return
+
+				if handle, params := r.lookup(req.Method, fixedPath); handle != nil {
+					req.URL.Path = fixedPath
+					if len(params) > 0 {
+						req = req.WithContext(
+							context.WithValue(req.Context(), ParamsKey, params),
+						)
+					}
+					handle.ServeHTTP(w, req)
+					return
+				}
 			}
 		}
 	}
