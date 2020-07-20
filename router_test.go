@@ -552,3 +552,18 @@ func TestRouterPanicHandler(t *testing.T) {
 		t.Fatal("simulating failed")
 	}
 }
+
+func TestRouterEscapedPath(t *testing.T) {
+	router := New()
+
+	router.HandlerFunc(http.MethodGet, "/keys/:key", func(rw http.ResponseWriter, _ *http.Request) {
+		rw.WriteHeader(http.StatusOK)
+	})
+
+	r, _ := http.NewRequest(http.MethodGet, "/keys/S%3A%2F%2FAppleIdIndex%2F%2Fasdasd%2F%2F%40", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, r)
+	if w.Code != 200 {
+		t.Errorf("NotFound handling route")
+	}
+}

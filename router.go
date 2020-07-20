@@ -290,9 +290,9 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	var path string
 	if r.CleanPath && req.URL.Path != "*" {
-		path = CleanPath(req.URL.Path)
+		path = CleanPath(req.URL.EscapedPath())
 	} else {
-		path = req.URL.Path
+		path = req.URL.EscapedPath()
 	}
 
 	if handle, params := r.lookup(req.Method, path); handle != nil {
