@@ -464,6 +464,9 @@ func TestRouterNotFound(t *testing.T) {
 	handlerFunc := func(_ http.ResponseWriter, _ *http.Request) {}
 
 	router := New()
+	router.CleanPath = true
+	router.RedirectTrailingSlash = true
+
 	router.GET("/path", handlerFunc)
 	router.GET("/dir/", handlerFunc)
 	router.GET("/", handlerFunc)
@@ -473,9 +476,9 @@ func TestRouterNotFound(t *testing.T) {
 		code     int
 		location string
 	}{
-		{"/path/", http.StatusOK, "/path"}, // TSR -/
-		{"/dir", http.StatusOK, "/dir/"},   // TSR +/
-		{"", http.StatusOK, "/"},           // TSR +/
+		{"/path/", http.StatusMovedPermanently, "/path"}, // TSR -/
+		{"/dir", http.StatusMovedPermanently, "/dir/"},   // TSR +/
+		{"", http.StatusOK, "/"},                         // CleanPath
 		// {"/PATH", http.StatusMovedPermanently, "/path"},    // Fixed Case
 		// {"/DIR/", http.StatusMovedPermanently, "/dir/"},    // Fixed Case
 		// {"/PATH/", http.StatusMovedPermanently, "/path"},   // Fixed Case -/
@@ -510,12 +513,14 @@ func TestRouterNotFound(t *testing.T) {
 	r, _ = http.NewRequest(http.MethodPatch, "/path/", nil)
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, r)
-	if w.Code != http.StatusOK {
+	if w.Code != http.StatusPermanentRedirect {
 		t.Errorf("Custom NotFound handler failed: Code=%d, Header=%v", w.Code, w.Header())
 	}
 
 	// Test special case where no node for the prefix "/" exists
 	router = New()
+	router.CleanPath = true
+	router.RedirectTrailingSlash = true
 	router.GET("/a", handlerFunc)
 	r, _ = http.NewRequest(http.MethodGet, "/", nil)
 	w = httptest.NewRecorder()
@@ -555,6 +560,7 @@ func TestRouterPanicHandler(t *testing.T) {
 
 func TestRouterEscapedPath(t *testing.T) {
 	router := New()
+	router.UseRawPath = true
 
 	router.HandlerFunc(http.MethodGet, "/keys/:key", func(rw http.ResponseWriter, _ *http.Request) {
 		rw.WriteHeader(http.StatusOK)
