@@ -98,11 +98,11 @@ type Router struct {
 	// unrecovered panics.
 	PanicHandler func(http.ResponseWriter, *http.Request, interface{})
 
-	// If enabled, the router try use URL.RawPath if one is found for route matching
+	// If enabled, the router prefers URL.RawPath for route matching instead of the unescaped URL.Path.
 	UseRawPath bool
 
-	// If enabled, the router will match remove extra slashes from the URL before matching. It
-	// not mutate the original URL.
+	// If enabled, the router will remove extra slashes from the path before route matching. It
+	// will not mutate the original URL.
 	CleanPath bool
 
 	// Enables automatic redirection if the current route can't be matched but a
@@ -297,8 +297,8 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// This isn't ideal bc we're secretly matching against a different URL
-	// that what we'll pass on to the handler but it solves our existing use
-	// case and for the most cases it will be ok.
+	// than what we'll pass on to the handler but it solves our existing use
+	// case and for the most part it will be ok.
 	if r.CleanPath {
 		path = CleanPath(path)
 	}
