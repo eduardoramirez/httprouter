@@ -245,16 +245,14 @@ func (n *node) search(path string) (*node, []string) {
 	prefix := n.path
 
 	// try going down the literals
-	if hasPrefix(path, prefix) {
-		path = path[len(prefix):]
-
+	if hasPrefix, prefixSize, nextChar := prefixHelper(path, prefix); hasPrefix {
+		path = path[prefixSize:]
 		if path == "" {
 			return n, nil
 		}
 
-		nextChar := path[0]
 		for i, c := range []byte(n.indices) {
-			if c == nextChar && hasPrefix(path, n.literals[i].path) {
+			if c == nextChar && hasPrefixEscapeSafe(path, n.literals[i].path) {
 				if found, params := n.literals[i].search(path); found != nil {
 					return found, params
 				}
@@ -401,11 +399,47 @@ func denormalizePath(normalizedPath string, wildcardNames []string) string {
 	return path.String()
 }
 
-func hasPrefix(s, prefix string) bool {
-	// we may have an already escaped path here, so for prefix matching purposes match
-	// against the unencoded characters
-	if unescapedPath, err := url.PathUnescape(s); err == nil {
-		s = unescapedPath
+func hasPrefixEscapeSafe(path, prefix string) bool {
+	unescapedPath, err := url.PathUnescape(path)
+	if err != nil {
+		unescapedPath = path
 	}
-	return strings.HasPrefix(s, prefix)
+	return strings.HasPrefix(unescapedPath, prefix)
+}
+
+// given a potentially escaped path prefixHelper returns whether the path has
+// the given prefix, the size of the prefix in the original path, and the next
+// unescaped character if there is one
+func prefixHelper(path, prefix string) (bool, int, byte) {
+	var nextChar byte
+
+	// always prefer the unescape version
+	unescapedPath, err := url.PathUnescape(path)
+	if err != nil {
+		unescapedPath = path
+	}
+
+	if strings.HasPrefix(unescapedPath, prefix) {
+		pathI := 0
+		prefixI := 0
+		// we know there is a match; count
+		for pathI < len(path) && prefixI < len(prefix) {
+			// direct match
+			if path[pathI] == prefix[prefixI] {
+				pathI++
+			} else {
+				// we found an encoding; its always of size 3
+				pathI += 3
+			}
+			prefixI++
+		}
+
+		if len(unescapedPath) > len(prefix) {
+			nextChar = unescapedPath[len(prefix)]
+		}
+
+		return true, pathI, nextChar
+	}
+
+	return false, 0, nextChar
 }
