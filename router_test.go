@@ -578,21 +578,43 @@ func TestRouterEscapedPath_ButMatchesExpectedEscapedLiterals(t *testing.T) {
 	router := New()
 	router.UseRawPath = true
 
-	router.HandlerFunc(http.MethodGet, "/@:username", func(rw http.ResponseWriter, _ *http.Request) {
+	router.HandlerFunc(http.MethodGet, "/:publication", func(rw http.ResponseWriter, _ *http.Request) {
 		rw.WriteHeader(http.StatusOK)
+		rw.Write([]byte("publication"))
 	})
 
-	pathCases := []string{
-		"/%40eduardo", // /@eduardo
-		"/@eduardo",
+	router.HandlerFunc(http.MethodGet, "/@:username", func(rw http.ResponseWriter, _ *http.Request) {
+		rw.WriteHeader(http.StatusOK)
+		rw.Write([]byte("username"))
+	})
+
+	testCases := []struct {
+		path     string
+		expected string
+	}{
+		{
+			path:     "/S%3A%2F%2FAppleIdIndex%2F%2Fasdasd%2F%2F%40",
+			expected: "publication",
+		},
+		{
+			path:     "/%40eduardo", // /@eduardo
+			expected: "username",
+		},
+		{
+			path:     "/@eduardo",
+			expected: "username",
+		},
 	}
 
-	for _, path := range pathCases {
-		r, _ := http.NewRequest(http.MethodGet, path, nil)
+	for _, tCase := range testCases {
+		r, _ := http.NewRequest(http.MethodGet, tCase.path, nil)
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, r)
 		if w.Code != 200 {
 			t.Errorf("Expected a successful request")
+		}
+		if w.Body.String() != tCase.expected {
+			t.Errorf("Did not match expected response. path: %v, got: %v, expected: %v", tCase.path, w.Body.String(), tCase.expected)
 		}
 	}
 }
