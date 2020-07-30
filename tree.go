@@ -402,10 +402,10 @@ func denormalizePath(normalizedPath string, wildcardNames []string) string {
 }
 
 func hasPrefix(s, prefix string) bool {
-	// we may have a an escaped path here, so for prefix matching purposes match
+	// we may have an already escaped path here, so for prefix matching purposes match
 	// against the unencoded characters
-	if escapedPath, err := url.PathUnescape(s); err == nil {
-		s = escapedPath
+	if unescapedPath, err := url.PathUnescape(s); err == nil {
+		s = unescapedPath
 	}
 	return strings.HasPrefix(s, prefix)
 }
