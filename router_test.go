@@ -573,3 +573,26 @@ func TestRouterEscapedPath(t *testing.T) {
 		t.Errorf("NotFound handling route")
 	}
 }
+
+func TestRouterEscapedPath_ButMatchesExpectedEscapedLiterals(t *testing.T) {
+	router := New()
+	router.UseRawPath = true
+
+	router.HandlerFunc(http.MethodGet, "/@:username", func(rw http.ResponseWriter, _ *http.Request) {
+		rw.WriteHeader(http.StatusOK)
+	})
+
+	pathCases := []string{
+		"/%40eduardo", // /@eduardo
+		"/@eduardo",
+	}
+
+	for _, path := range pathCases {
+		r, _ := http.NewRequest(http.MethodGet, path, nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, r)
+		if w.Code != 200 {
+			t.Errorf("Expected a successful request")
+		}
+	}
+}

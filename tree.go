@@ -8,6 +8,7 @@ package httprouter
 
 import (
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -244,7 +245,7 @@ func (n *node) search(path string) (*node, []string) {
 	prefix := n.path
 
 	// try going down the literals
-	if strings.HasPrefix(path, prefix) {
+	if hasPrefix(path, prefix) {
 		path = path[len(prefix):]
 
 		if path == "" {
@@ -253,7 +254,7 @@ func (n *node) search(path string) (*node, []string) {
 
 		nextChar := path[0]
 		for i, c := range []byte(n.indices) {
-			if c == nextChar && strings.HasPrefix(path, n.literals[i].path) {
+			if c == nextChar && hasPrefix(path, n.literals[i].path) {
 				if found, params := n.literals[i].search(path); found != nil {
 					return found, params
 				}
@@ -398,4 +399,13 @@ func denormalizePath(normalizedPath string, wildcardNames []string) string {
 	}
 
 	return path.String()
+}
+
+func hasPrefix(s, prefix string) bool {
+	// we may have a an escaped path here, so for prefix matching purposes match
+	// against the unencoded characters
+	if escapedPath, err := url.PathUnescape(s); err == nil {
+		s = escapedPath
+	}
+	return strings.HasPrefix(s, prefix)
 }
