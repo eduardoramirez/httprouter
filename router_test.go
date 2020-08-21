@@ -464,7 +464,7 @@ func TestRouterNotFound(t *testing.T) {
 	handlerFunc := func(_ http.ResponseWriter, _ *http.Request) {}
 
 	router := New()
-	router.CleanPath = true
+	router.RedirectFixedPath = true
 	router.RedirectTrailingSlash = true
 
 	router.GET("/path", handlerFunc)
@@ -478,13 +478,14 @@ func TestRouterNotFound(t *testing.T) {
 	}{
 		{"/path/", http.StatusMovedPermanently, "/path"}, // TSR -/
 		{"/dir", http.StatusMovedPermanently, "/dir/"},   // TSR +/
-		{"", http.StatusOK, "/"},                         // CleanPath
+		{"", http.StatusMovedPermanently, "/"},           // CleanPath
 		// {"/PATH", http.StatusMovedPermanently, "/path"},    // Fixed Case
 		// {"/DIR/", http.StatusMovedPermanently, "/dir/"},    // Fixed Case
 		// {"/PATH/", http.StatusMovedPermanently, "/path"},   // Fixed Case -/
 		// {"/DIR", http.StatusMovedPermanently, "/dir/"},     // Fixed Case +/
-		{"/../path", http.StatusOK, "/path"}, // CleanPath
-		{"/nope", http.StatusNotFound, ""},   // NotFound
+		{"/../path", http.StatusMovedPermanently, "/path"}, // CleanPath
+		{"//path", http.StatusMovedPermanently, "/path"},   // CleanPath
+		{"/nope", http.StatusNotFound, ""},                 // NotFound
 	}
 	for _, tr := range testRoutes {
 		r, _ := http.NewRequest(http.MethodGet, tr.route, nil)
@@ -519,7 +520,7 @@ func TestRouterNotFound(t *testing.T) {
 
 	// Test special case where no node for the prefix "/" exists
 	router = New()
-	router.CleanPath = true
+	router.RedirectFixedPath = true
 	router.RedirectTrailingSlash = true
 	router.GET("/a", handlerFunc)
 	r, _ = http.NewRequest(http.MethodGet, "/", nil)
@@ -577,6 +578,7 @@ func TestRouterEscapedPath(t *testing.T) {
 func TestRouterEscapedPath_ButMatchesExpectedEscapedLiterals(t *testing.T) {
 	router := New()
 	router.UseRawPath = true
+	router.RedirectFixedPath = true
 
 	router.HandlerFunc(http.MethodGet, "/:publication", func(rw http.ResponseWriter, _ *http.Request) {
 		rw.WriteHeader(http.StatusOK)

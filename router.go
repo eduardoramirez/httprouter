@@ -101,9 +101,16 @@ type Router struct {
 	// If enabled, the router prefers URL.RawPath for route matching instead of the unescaped URL.Path.
 	UseRawPath bool
 
-	// If enabled, the router will remove extra slashes from the path before route matching. It
-	// will not mutate the original URL.
-	CleanPath bool
+	// If enabled, the router tries to fix the current request path, if no
+	// handle is registered for it.
+	// First superfluous path elements like ../ or // are removed.
+	// Afterwards the router does a case-insensitive lookup of the cleaned path.
+	// If a handle can be found for this route, the router makes a redirection
+	// to the corrected path with status code 301 for GET requests and 308 for
+	// all other request methods.
+	// For example /FOO and /..//Foo could be redirected to /foo.
+	// RedirectTrailingSlash is independent of this option.
+	RedirectFixedPath bool
 
 	// Enables automatic redirection if the current route can't be matched but a
 	// handler for the path with (without) the trailing slash exists.
@@ -123,7 +130,7 @@ func New() *Router {
 		HandleOPTIONS:          true,
 		RedirectTrailingSlash:  true,
 		UseRawPath:             false,
-		CleanPath:              false,
+		RedirectFixedPath:      false,
 	}
 }
 
@@ -262,6 +269,10 @@ func (r *Router) recv(w http.ResponseWriter, req *http.Request) {
 }
 
 func (r *Router) lookup(method, path string) (http.Handler, Params) {
+	if path == "" {
+		return nil, nil
+	}
+
 	if root := r.trees[method]; root != nil {
 		nodeFound, paramValues := root.search(path)
 		if nodeFound == nil || nodeFound.handle == nil {
@@ -296,13 +307,6 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		path = req.URL.RawPath
 	}
 
-	// This isn't ideal bc we're secretly matching against a different URL
-	// than what we'll pass on to the handler but it solves our existing use
-	// case and for the most part it will be ok.
-	if r.CleanPath && req.URL.Path != "*" {
-		path = CleanPath(path)
-	}
-
 	if handle, params := r.lookup(req.Method, path); handle != nil {
 		if len(params) > 0 {
 			req = req.WithContext(
@@ -316,7 +320,7 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	// No route matched the incoming request. Try any automatic fallbacks that are enabled.
 
 	// Redirect from (e.g.) `/foo/` to `/foo` (or vice-versa):
-	if r.RedirectTrailingSlash && path != "/" && req.Method != http.MethodConnect {
+	if path != "/" && req.Method != http.MethodConnect {
 		// Moved Permanently, request with GET method
 		code := http.StatusMovedPermanently
 		if req.Method != http.MethodGet {
@@ -324,21 +328,33 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			code = http.StatusPermanentRedirect
 		}
 
-		var fixedPath string
-		// using a separate variable here in case we're using RawPath
-		newPath := req.URL.Path
-		if len(path) > 1 && path[len(path)-1] == '/' {
-			fixedPath = path[:len(path)-1]
-			newPath = newPath[:len(newPath)-1]
-		} else {
-			fixedPath = path + "/"
-			newPath = newPath + "/"
+		if r.RedirectTrailingSlash {
+			var fixedPath string
+			// using a separate variable here in case we're using RawPath
+			newPath := req.URL.Path
+			if len(path) > 1 && path[len(path)-1] == '/' {
+				fixedPath = path[:len(path)-1]
+				newPath = newPath[:len(newPath)-1]
+			} else {
+				fixedPath = path + "/"
+				newPath = newPath + "/"
+			}
+
+			if handle, _ := r.lookup(req.Method, fixedPath); handle != nil {
+				req.URL.Path = newPath
+				http.Redirect(w, req, req.URL.String(), code)
+				return
+			}
 		}
 
-		if handle, _ := r.lookup(req.Method, fixedPath); handle != nil {
-			req.URL.Path = newPath
-			http.Redirect(w, req, req.URL.String(), code)
-			return
+		if r.RedirectFixedPath && req.URL.Path != "*" {
+			fixedPath := CleanPath(path)
+
+			if handle, _ := r.lookup(req.Method, fixedPath); handle != nil {
+				req.URL.Path = fixedPath
+				http.Redirect(w, req, req.URL.String(), code)
+				return
+			}
 		}
 	}
 
