@@ -319,7 +319,6 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	// No route matched the incoming request. Try any automatic fallbacks that are enabled.
 
-	// Redirect from (e.g.) `/foo/` to `/foo` (or vice-versa):
 	if path != "/" && req.Method != http.MethodConnect {
 		// Moved Permanently, request with GET method
 		code := http.StatusMovedPermanently
@@ -328,32 +327,33 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			code = http.StatusPermanentRedirect
 		}
 
+		// Redirect from (e.g.) `/foo/` to `/foo` (or vice-versa):
 		if r.RedirectTrailingSlash {
-			var fixedPath string
 			// using a separate variable here in case we're using RawPath
-			newPath := req.URL.Path
-			if len(path) > 1 && path[len(path)-1] == '/' {
-				fixedPath = path[:len(path)-1]
-				newPath = newPath[:len(newPath)-1]
-			} else {
-				fixedPath = path + "/"
-				newPath = newPath + "/"
-			}
-
+			fixedPath := fixSlash(path)
 			if handle, _ := r.lookup(req.Method, fixedPath); handle != nil {
-				req.URL.Path = newPath
+				req.URL.Path = fixSlash(req.URL.Path)
 				http.Redirect(w, req, req.URL.String(), code)
 				return
 			}
 		}
 
+		// Redirect from (e.g.) `/../foo/` to `/foo`:
 		if r.RedirectFixedPath && req.URL.Path != "*" {
 			fixedPath := CleanPath(path)
-
 			if handle, _ := r.lookup(req.Method, fixedPath); handle != nil {
 				req.URL.Path = fixedPath
 				http.Redirect(w, req, req.URL.String(), code)
 				return
+			}
+
+			if r.RedirectTrailingSlash {
+				fixedPath = fixSlash(fixedPath)
+				if handle, _ := r.lookup(req.Method, fixedPath); handle != nil {
+					req.URL.Path = fixedPath
+					http.Redirect(w, req, req.URL.String(), code)
+					return
+				}
 			}
 		}
 	}
@@ -388,4 +388,12 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	} else {
 		http.NotFound(w, req)
 	}
+}
+
+// Adds or a remove a trailing slash from s
+func fixSlash(s string) string {
+	if len(s) > 1 && s[len(s)-1] == '/' {
+		return s[:len(s)-1]
+	}
+	return s + "/"
 }
