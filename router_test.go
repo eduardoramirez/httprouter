@@ -483,9 +483,10 @@ func TestRouterNotFound(t *testing.T) {
 		// {"/DIR/", http.StatusMovedPermanently, "/dir/"},    // Fixed Case
 		// {"/PATH/", http.StatusMovedPermanently, "/path"},   // Fixed Case -/
 		// {"/DIR", http.StatusMovedPermanently, "/dir/"},     // Fixed Case +/
-		{"/../path", http.StatusMovedPermanently, "/path"}, // CleanPath
-		{"//path", http.StatusMovedPermanently, "/path"},   // CleanPath
-		{"/nope", http.StatusNotFound, ""},                 // NotFound
+		{"/../path", http.StatusMovedPermanently, "/path"},  // CleanPath
+		{"/path////", http.StatusMovedPermanently, "/path"}, // CleanPath
+		{"//path", http.StatusMovedPermanently, "/path"},    // CleanPath
+		{"/nope", http.StatusNotFound, ""},                  // NotFound
 	}
 	for _, tr := range testRoutes {
 		r, _ := http.NewRequest(http.MethodGet, tr.route, nil)
