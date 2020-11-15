@@ -118,6 +118,10 @@ type Router struct {
 	// client is redirected to /foo with http status code 301 for GET requests
 	// and 308 for all other request methods.
 	RedirectTrailingSlash bool
+
+	// An optional handler that is called if any redirect is made by the router. If not provided,
+	// a regular http.Redirect call is made.
+	RedirectHandler func(http.ResponseWriter, *http.Request, int)
 }
 
 // Make sure the Router conforms with the http.Handler interface
@@ -296,6 +300,14 @@ func (r *Router) lookup(method, path string) (http.Handler, Params) {
 	return nil, nil
 }
 
+func (r *Router) redirect(w http.ResponseWriter, req *http.Request, code int) {
+	if r.RedirectHandler != nil {
+		r.RedirectHandler(w, req, code)
+	} else {
+		http.Redirect(w, req, req.URL.String(), code)
+	}
+}
+
 // ServeHTTP makes the router implement the http.Handler interface.
 func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if r.PanicHandler != nil {
@@ -333,7 +345,7 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			fixedPath := fixSlash(path)
 			if handle, _ := r.lookup(req.Method, fixedPath); handle != nil {
 				req.URL.Path = fixSlash(req.URL.Path)
-				http.Redirect(w, req, req.URL.String(), code)
+				r.redirect(w, req, code)
 				return
 			}
 		}
@@ -343,7 +355,7 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			fixedPath := CleanPath(path)
 			if handle, _ := r.lookup(req.Method, fixedPath); handle != nil {
 				req.URL.Path = fixedPath
-				http.Redirect(w, req, req.URL.String(), code)
+				r.redirect(w, req, code)
 				return
 			}
 
@@ -351,7 +363,7 @@ func (r *Router) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				fixedPath = fixSlash(fixedPath)
 				if handle, _ := r.lookup(req.Method, fixedPath); handle != nil {
 					req.URL.Path = fixedPath
-					http.Redirect(w, req, req.URL.String(), code)
+					r.redirect(w, req, code)
 					return
 				}
 			}

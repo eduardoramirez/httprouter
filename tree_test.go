@@ -480,3 +480,32 @@ func TestTreeWildcard_RecursesIntoPrefixIfEntirePrefixMatches(t *testing.T) {
 
 	checkPriorities(t, tree)
 }
+
+func TestTreeWildcard_PartialLiteralMatch(t *testing.T) {
+	tree := &node{}
+
+	routes := [...]string{
+		"/",
+		"/topic/:topicSlug",
+		"/top-stories",
+		"/topics",
+		"/:collectionSlug",
+	}
+	for _, route := range routes {
+		tree.addRoute(route, fakeHandler(route))
+	}
+
+	checkRequests(t, tree, testRequests{
+		// all prefixes should match the wildcard node (instead of not matching anything)
+		{"/t", false, "/:collectionSlug", []string{"collectionSlug"}, []string{"t"}},
+		{"/to", false, "/:collectionSlug", []string{"collectionSlug"}, []string{"to"}},
+		{"/top", false, "/:collectionSlug", []string{"collectionSlug"}, []string{"top"}},
+		{"/topi", false, "/:collectionSlug", []string{"collectionSlug"}, []string{"topi"}},
+		{"/topic", false, "/:collectionSlug", []string{"collectionSlug"}, []string{"topic"}},
+		// now these are matches against other well defined routes
+		{"/topic/news", false, "/topic/:topicSlug", []string{"topicSlug"}, []string{"news"}},
+		{"/topics", false, "/topics", nil, nil},
+	})
+
+	checkPriorities(t, tree)
+}

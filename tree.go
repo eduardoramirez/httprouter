@@ -235,33 +235,43 @@ func (n *node) insertChild(fullpath string, path string, handle http.Handler, wi
 	n.wildcardNames = wildcardNames
 }
 
-// recursively looks for a node at the given path
+// search recursively looks for a node at the given path
 func (n *node) search(path string) (*node, []string) {
 	// base case
 	if len(path) == 0 {
 		return n, nil
 	}
 
-	prefix := n.path
+	// the current node's prefix must match, otherwise it's already a miss
+	if i, nextChar, ok := escapeSafePrefixHelper(path, n.path); ok {
+		// consume the prefix:
+		// path = /topics and node prefix = /top
+		// then, strips `/top` from path
+		path = path[i:]
 
-	// try going down the literals
-	if hasPrefix, prefixSize, nextChar := prefixHelper(path, prefix); hasPrefix {
-		path = path[prefixSize:]
-		if path == "" {
-			return n, nil
+		// we've consumed the entire path; the current node is what we're looking for
+		if len(path) == 0 {
+			if n.handle != nil {
+				return n, nil
+			}
+			return nil, nil
 		}
 
+		// we got more path to go; in priority order, try:
+		// - direct literal matches
+		// - named wildcards
+		// - catch all
+
+		// direct literals
 		for i, c := range []byte(n.indices) {
-			if c == nextChar && hasPrefixEscapeSafe(path, n.literals[i].path) {
+			if c == nextChar {
 				if found, params := n.literals[i].search(path); found != nil {
 					return found, params
 				}
 			}
 		}
-	}
 
-	if len(path) > 0 && path[0] != '/' {
-		// if no literal matched, does the wildcard subpath work?
+		// wildcard subpath
 		if n.wild != nil {
 			var token string
 			// Find param end (either '/' or path end)
@@ -286,7 +296,7 @@ func (n *node) search(path string) (*node, []string) {
 			}
 		}
 
-		// otherwise, do we have a catchall at this point that we can fallback to?
+		// catchall fallback
 		if n.catchAll != nil {
 			return n.catchAll, []string{path}
 		}
@@ -399,20 +409,9 @@ func denormalizePath(normalizedPath string, wildcardNames []string) string {
 	return path.String()
 }
 
-func hasPrefixEscapeSafe(path, prefix string) bool {
-	unescapedPath, err := url.PathUnescape(path)
-	if err != nil {
-		unescapedPath = path
-	}
-	return strings.HasPrefix(unescapedPath, prefix)
-}
-
-// given a potentially escaped path prefixHelper returns whether the path has
-// the given prefix, the size of the prefix in the original path, and the next
-// unescaped character if there is one
-func prefixHelper(path, prefix string) (bool, int, byte) {
-	var nextChar byte
-
+// given a potentially escaped path prefixHelper returns the index where the prefix
+// ends, the next character after the prefix, and whether we found the prefix
+func escapeSafePrefixHelper(path, prefix string) (i int, next byte, ok bool) {
 	// always prefer the unescape version
 	unescapedPath, err := url.PathUnescape(path)
 	if err != nil {
@@ -435,11 +434,11 @@ func prefixHelper(path, prefix string) (bool, int, byte) {
 		}
 
 		if len(unescapedPath) > len(prefix) {
-			nextChar = unescapedPath[len(prefix)]
+			next = unescapedPath[len(prefix)]
 		}
 
-		return true, pathI, nextChar
+		return pathI, next, true
 	}
 
-	return false, 0, nextChar
+	return
 }
